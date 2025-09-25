@@ -12,7 +12,7 @@ This dual-attention mechanism enables SATO to achieve multi-scale feature fusion
 
 Results demonstrate that SATO reduces the relative L₂ error in pressure prediction by 13% and 11%, respectively, compared to state-of-the-art methods, while maintaining real-time inference speed (under one second) for vehicles with over 0.42 million mesh vertices. The complementarity of the two attention mechanisms is further substantiated through a visual analysis of their internal operations. Our study highlights the effectiveness of integrating global and local spatial correlations in transformer-based operator learning and establishes SATO as a robust surrogate model for real-time aerodynamic evaluations of arbitrary vehicle geometries.
 
-## Implementation Ecosystem
+## Implementation Framework
 We release the code for the PyTorch environment, and the code for the PaddlePaddle environment will come soon.
 
 ## Datasets
