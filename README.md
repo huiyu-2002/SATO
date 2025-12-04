@@ -20,6 +20,19 @@ We release the code for the PyTorch environment, and the code for the PaddlePadd
 1. [ShapeNet Car Dataset 🔗](https://github.com/thuml/Transolver/tree/main/Car-Design-ShapeNetCar)
 2. [DrivAerNet Dataset 🔗](https://github.com/Mohamedelrefaie/DrivAerNet/tree/main/DrivAerNet_v1)
 
+## Citation
+
+```
+@article{yang2026spatial,
+  title={Spatially-aware transformer operator for real-time aerodynamic evaluations of arbitrary three-dimensional vehicles},
+  author={Yang, Huiyu and Gu, Jianghang and Chen, Yuntian and Bin, Yuanwei and Wang, Jianchun and Chen, Shiyi},
+  journal={Journal of Computational Physics},
+  volume={545},
+  pages={114456},
+  year={2026},
+  publisher={Elsevier}
+}
+```
 
 
 ## References
