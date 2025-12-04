@@ -2,7 +2,8 @@ import yaml
 import shutil
 import os
 from datetime import datetime
-from dataset.Dataset import VTKDataset
+from torch.utils.data import DataLoader
+from dataset.Dataset import VTKDataset, SATO_Dataset, sato_collate_fn
 from models.SATO import Model
 from Train import train
 from utils import *
@@ -24,6 +25,13 @@ if __name__ == '__main__':
     Dataset = VTKDataset()
     train_data_lst, test_data_lst, val_data_lst, mean_data, std_data = Dataset.get_data_dict(config.data.directory)
 
+    # Create DataLoaders
+    train_dataset = SATO_Dataset(train_data_lst, config, is_train=True)
+    test_dataset = SATO_Dataset(test_data_lst, config, is_train=False)
+    
+    train_loader = DataLoader(train_dataset, batch_size=config.training.batch_size, shuffle=True, num_workers=4, pin_memory=True, collate_fn=sato_collate_fn)
+    test_loader = DataLoader(test_dataset, batch_size=config.training.batch_size, shuffle=False, num_workers=2, pin_memory=True, collate_fn=sato_collate_fn)
+
     # build model
     model = Model(space_dim=config.model.input_dim,
                   n_layers=config.model.depth, 
@@ -38,4 +46,4 @@ if __name__ == '__main__':
     print(f'count_params: {count_params(model)}')
 
     # train model
-    train(config, model, train_data_lst, test_data_lst, mean_data, std_data, device, results_dir)
+    train(config, model, train_loader, test_loader, mean_data, std_data, device, results_dir)

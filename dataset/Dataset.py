@@ -6,8 +6,12 @@ import numpy as np
 from vtk.util.numpy_support import numpy_to_vtk, vtk_to_numpy
 from dataset.serialize import Point
 
+from torch.utils.data import Dataset
+
 def pos_to_order_inverse_index(pos, tensor=False):
-    data_dict = dict(coord=pos[None, ...], grid_size = torch.tensor([0.05,0.05,0.05]))
+    if pos.dim() == 2:
+        pos = pos.unsqueeze(0)
+    data_dict = dict(coord=pos, grid_size = torch.tensor([0.05,0.05,0.05]))
     B,N,C = data_dict['coord'].shape
     data_dict['batch'] = torch.arange(B).repeat_interleave(N).cuda()
     data_dict['coord'] = data_dict['coord'].view(B*N,C).cuda()
@@ -20,6 +24,61 @@ def pos_to_order_inverse_index(pos, tensor=False):
         order = point['serialized_order'][None, ...]
         inverse = point['serialized_inverse'][None, ...]      
     return order, inverse
+
+
+def sato_collate_fn(batch):
+    lengths = [item['x'].shape[0] for item in batch]
+    min_len = min(lengths)
+    
+    batch_x = []
+    batch_y = []
+    
+    for item in batch:
+        x = item['x']
+        y = item['y']
+        
+        if x.shape[0] > min_len:
+            # Randomly sample min_len indices
+            idx = torch.randperm(x.shape[0])[:min_len]
+            x = x[idx]
+            y = y[idx]
+            
+        batch_x.append(x)
+        batch_y.append(y)
+        
+    return {
+        'x': torch.stack(batch_x),
+        'y': torch.stack(batch_y)
+    }
+
+
+class SATO_Dataset(Dataset):
+    def __init__(self, data_list, config=None, is_train=True):
+        self.data_list = data_list
+        self.config = config
+        self.is_train = is_train
+
+    def __len__(self):
+        return len(self.data_list)
+
+    def __getitem__(self, idx):
+        data = self.data_list[idx]
+        x = data['Surface_data']['Surface_points']
+        y = data['Surface_data']['Surface_pressure']
+
+        # Move downsample logic here to allow parallel processing by DataLoader workers
+        if self.config is not None and hasattr(self.config.model, 'down_sample'):
+            # Use numpy random generation which is process-safe in workers
+            num_points = x.shape[0]
+            sample_size = int(num_points * self.config.model.down_sample)
+            
+            # Generate indices (on CPU)
+            sampled_indices = np.random.choice(num_points, sample_size, replace=False)
+            
+            x = x[sampled_indices]
+            y = y[sampled_indices]
+
+        return {'x': x, 'y': y}
 
 
 class VTKDataset():

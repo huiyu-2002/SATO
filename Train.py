@@ -5,7 +5,7 @@ from utils import LpLoss
 from timeit import default_timer
 from dataset.Dataset import pos_to_order_inverse_index
 
-def train(config, model, train_data, test_data, mean_data, std_data, device, results_dir):
+def train(config, model, train_loader, test_loader, mean_data, std_data, device, results_dir):
     # set loss function, optimizer and scheduler
     L2_fn = LpLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=config.training.lr)
@@ -22,19 +22,21 @@ def train(config, model, train_data, test_data, mean_data, std_data, device, res
     for ep in range(config.training.epochs):
         model.train()
         t1 = default_timer()
-        for n_iter, data in enumerate(train_data):
-            x = data['Surface_data']['Surface_points'].to(device)
-            y = data['Surface_data']['Surface_pressure'].to(device)
-            sampled_indices = torch.Tensor(np.random.choice(np.arange(x.shape[0]), int(x.shape[0] * config.model.down_sample), replace=False)).long()
-            x = x[sampled_indices]
-            y = y[sampled_indices]
+        # Changed from enumerate(train_data) to enumerate(train_loader)
+        for n_iter, data in enumerate(train_loader):
+            x = data['x'].to(device)
+            y = data['y'].to(device)
+            
             order, inverse = pos_to_order_inverse_index(x, tensor=True)
             
+            # Normalize
             x = (x - mean_data['Surface_mean']['Surface_points']) / std_data['Surface_std']['Surface_points']
-            y_hat = model(x[None, ...], order, inverse).reshape(-1)
+            
+            # Model expects [B, N, C], which x already is.
+            y_hat = model(x, order, inverse).reshape(-1)
             y_hat = y_hat * std_data['Surface_std']['Surface_pressure'] + mean_data['Surface_mean']['Surface_pressure']
             
-            train_loss = L2_fn(y_hat[None, ...], y[None, ...])
+            train_loss = L2_fn(y_hat[None, ...], y[None, ...].reshape(1, -1)) # y shape match
 
             optimizer.zero_grad()
             train_loss.backward()
@@ -52,19 +54,19 @@ def train(config, model, train_data, test_data, mean_data, std_data, device, res
         with torch.no_grad():
             torch.cuda.empty_cache()
             test_losses = []
-            for data in test_data:
-                x = data['Surface_data']['Surface_points'].to(device)
-                y = data['Surface_data']['Surface_pressure'].to(device)
-                sampled_indices = torch.Tensor(np.random.choice(np.arange(x.shape[0]), int(x.shape[0] * config.model.down_sample), replace=False)).long()
-                x = x[sampled_indices]
-                y = y[sampled_indices]
+            for data in test_loader:
+                x = data['x'].to(device)
+                y = data['y'].to(device)
+                
+                # x is already sampled by Dataset logic if configured
+                
                 order, inverse = pos_to_order_inverse_index(x, tensor=True)
 
                 x = (x - mean_data['Surface_mean']['Surface_points']) / std_data['Surface_std']['Surface_points']
-                y_hat = model(x[None, ...], order, inverse).reshape(-1)
+                y_hat = model(x, order, inverse).reshape(-1)
                 y_hat = y_hat * std_data['Surface_std']['Surface_pressure'] + mean_data['Surface_mean']['Surface_pressure']
                 
-                test_loss = L2_fn(y_hat[None, ...], y[None, ...])
+                test_loss = L2_fn(y_hat[None, ...], y[None, ...].reshape(1, -1))
                 test_losses.append(test_loss.item())
 
         test_loss = np.mean(test_losses)
